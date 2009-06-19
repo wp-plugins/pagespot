@@ -20,13 +20,24 @@
 class PageSpot_Admin extends PageSpot
 {
     public static function page_edit_form($post) {
-        global $wpdb;
+        global $wpdb, $wp_filter;
         
         if (!$template_file = self::get_pagespot_template_name($post->ID)) {
             ?>
             <i>Set this page's template to a PageSpot template to use PageSpot.</i>
             <?php
             return;
+        }
+        
+        // Conflict with RoleScoper plugin filter on wp_dropdown_pages causing a bug here.
+        // Remove all filters on that action and re-add when finished.
+        // A little heavy-handed but for now we'll just allow ANY page to be assigned to a Spot,
+        // regardless of other plugins' filters
+        
+        $_sv_filter = null;
+        if (!empty($wp_filter['wp_dropdown_pages'])) {
+            $_sv_filter = $wp_filter['wp_dropdown_pages'];
+            remove_all_filters('wp_dropdown_pages');
         }
         
         $spots = self::parse_tags(file_get_contents($template_file));
@@ -51,6 +62,10 @@ class PageSpot_Admin extends PageSpot
         } ?>
         </table>
         <?php
+        
+        if ($_sv_filter != null) {
+            $wp_filter['wp_dropdown_pages'] = $_sv_filter;
+        }
     }
     
     public static function page_edit_sidebar_form($post) {

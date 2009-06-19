@@ -4,7 +4,7 @@ Donate link:
 Tags: page, cms, sidebar
 Requires at least: 2.7
 Tested up to: 2.7
-Stable tag: 0.1.2
+Stable tag: 0.1.3
 
 PageSpot facilitates more complex layout options for Pages, and dynamically
 assignable sidebar content on a per-Page basis.
@@ -50,10 +50,10 @@ you then need to bring this functionality into your custom theme:
 1. Activate the plugin through the 'Plugins' menu in WordPress
 
 * Creating a PageSpot page template*
-1. Create a template in your theme directory called, for example, "pagespot-foo"
+1. Create a template in your theme directory with "pagespot" in the filename (See screenshot 1)
 1. Add spot annotations to your template of the form [[PageSpot:aSpotName]]
-1. Create a child Page of the private Page "[PageSpot] Page Snippets"
-1. Edit the target public Page, in the Template dropdown select "pagespot-foo"
+1. Create a child Page of the private Page "[PageSpot] Page Snippets" (See screenshot 2)
+1. Edit the target public Page, in the Template dropdown select "pagespot-foo" (See screenshot 3)
 1. In the PageSpot meta box, the names of your template annotations are displayed; assign a Page to each.
 
 * Creating a PageSpot sidebar*
@@ -65,3 +65,8 @@ you then need to bring this functionality into your custom theme:
 == Frequently Asked Questions ==
 
 == Screenshots ==
+1. An example PageSpot template, pagespot-nsew.php, with spots for North, South, East, and West
+2. Adding PageSpot snippets to be reused in public Page layouts
+3. After selecting a PageSpot template, you can assign pages to fill in the spots in that template
+4. Creating selectable Sidebars by adding child pages to private "[Sidebar] Foo" pages
+5. Assigning a sidebar to a Page

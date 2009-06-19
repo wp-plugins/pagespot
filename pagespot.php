@@ -3,7 +3,7 @@
  * Plugin Name: PageSpot
  * Plugin URI: http://pixelnix.com
  * Description: Annotate your Page templates with spots to pull in other Pages. 
- * Version: 2009-03
+ * Version: 0.1.3
  * Author: Nick Eby
  * Author URI: http://pixelnix.com
  */
