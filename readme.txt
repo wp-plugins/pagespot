@@ -4,7 +4,7 @@ Donate link:
 Tags: page, cms, sidebar
 Requires at least: 2.7
 Tested up to: 2.7
-Stable tag: 0.1.3
+Stable tag: 0.1.4
 
 PageSpot facilitates more complex layout options for Pages, and dynamically
 assignable sidebar content on a per-Page basis.
