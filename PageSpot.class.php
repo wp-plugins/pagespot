@@ -273,7 +273,7 @@ class PageSpot
         $rs = $wpdb->get_results(
             'SELECT post_content FROM ' . $wpdb->posts . 
             ' WHERE post_parent = ' . $sidebarCtr .
-            ' and post_type=\'page\'' .
+            ' and post_type=\'page\' and post_status!=\'draft\'' .
             ' order by menu_order, id'
         );
         //print_r($rs);
