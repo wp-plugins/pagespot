@@ -56,7 +56,7 @@ class PageSpot_Admin extends PageSpot
             ?>
             <tr>
                 <td><b><?php print ucfirst($spot) ?></b></td>
-                <td><?php wp_dropdown_pages(array('selected' => $selected, 'name' => "pagespot[$spot]", 'show_option_none' => false, 'sort_column'=> 'menu_order, post_title')); ?></td>
+                <td><?php wp_dropdown_pages(array('selected' => $selected, 'name' => "pagespot[$spot]", 'show_option_none' => 'Ignore', 'sort_column'=> 'menu_order, post_title')); ?></td>
             </tr>
         <?php
         } ?>
@@ -96,12 +96,69 @@ class PageSpot_Admin extends PageSpot
         <?php
     }
     
+    public static function post_edit_sidebar_form($post) {
+        global $wpdb;
+        
+        if (!self::isPostTemplatingEnabled())
+            return;
+        
+        $tpl = get_post_meta($post->ID, '_wp_page_template', true);
+        
+        ?>
+        <h5><?php _e('Template') ?></h5>
+        <label class="screen-reader-text" for="pagespot[<?php print self::$SIDEBAR_SPOT ?>]">
+            <?php _e('Post Template') ?></label>
+        <select name="page_template" id="page_template">
+        <option value='default'><?php _e('Default Template'); ?></option>
+        <?php page_template_dropdown($tpl); ?>
+        </select>
+        <?php
+        
+        if ($template_file = self::get_pagespot_template_name($post->ID)) {
+            $rs = $wpdb->get_results(
+                "SELECT ID, post_title FROM {$wpdb->posts} 
+                    WHERE post_type='page'
+                    AND post_status='private'
+                    AND post_title like '[Sidebar]%'"
+            );
+            $selected = self::get_post_for_page_spot($post->ID, self::$SIDEBAR_SPOT);
+            if ($selected === null) {
+                $selected = get_option('pagespot_sidebar_container_id');
+            }
+            ?>
+            <h5><?php _e('Sidebar') ?></h5>
+            <label class="screen-reader-text" for="pagespot[<?php print self::$SIDEBAR_SPOT ?>]">
+                <?php _e('PageSpot Sidebar') ?></label>
+            <select name="pagespot[<?php print self::$SIDEBAR_SPOT ?>]">
+                <?php
+                if (!empty($rs)) {
+                    foreach ($rs as $row) {
+                        $t = trim(str_replace('[Sidebar]', '', $row->post_title));
+                        $opt_sel = ($row->ID == $selected ? ' selected' : '');
+                        print "<option value=\"{$row->ID}\"{$opt_sel}>{$t}</option>";
+                    }
+                }
+                ?>
+                <option value="0" <?php if ($selected === '0') print 'selected' ?>>None</option>
+            </select>
+        <?php
+        }
+    }
+    
     public static function save_post_action($post_id) {
         global $wpdb;
         
         if (false !== ($parent = wp_is_post_revision($post_id))) {
             //$post_id = $parent;
             return;
+        }
+        
+        // Save the Template for posts
+        if (self::isPostTemplatingEnabled() && isset($_POST['page_template'])) {
+            if (!is_page($post_id)) {
+                //die("save template {$_POST['page_template']} for post {$post_id}");
+                update_post_meta($post_id, '_wp_page_template', $_POST['page_template']);
+            }
         }
         
         // Set Private visibility to any child of private [PageSpot] page
@@ -139,8 +196,7 @@ class PageSpot_Admin extends PageSpot
             return;
         }
         
-        //print_r($pagespot);
-        //exit;
+        //print_r($pagespot); //exit;
         
         foreach ($pagespot as $spot=>$pageAtSpotId) {
             $existing = $wpdb->get_var($wpdb->prepare(
@@ -149,24 +205,29 @@ class PageSpot_Admin extends PageSpot
                 , $post_id, $spot
             ));
             
-            if (!empty($existing) && ($pageAtSpotId == $existing)) {
+            //print_r("Post {$post_id} at spot {$spot} has existing {$existing}");
+            
+            if ($existing !== null && ($pageAtSpotId == $existing)) {
                 continue;
             }
-            else if (!empty($existing) && !empty($pageAtSpotId)) {
+            else if ($existing !== null && !empty($pageAtSpotId)) {
+                //print_r("Update");
                 $wpdb->query($wpdb->prepare(
                     'UPDATE ' . $wpdb->prefix . self::$TBL_NAME .
                     ' SET post_id=%d WHERE page_id=%d AND spot=%s'
                     , $pageAtSpotId, $post_id, $spot
                 ));
             }
-            else if (!empty($existing) && empty($pageAtSpotId)) {
+            else if ($existing !== null && empty($pageAtSpotId)) {
+                //print_r("Delete");
                 $wpdb->query($wpdb->prepare(
                     'DELETE FROM ' . $wpdb->prefix . self::$TBL_NAME .
                     ' WHERE page_id=%d AND spot=%s'
                     , $post_id, $spot
                 ));
             }
-            else if (empty($existing) && !empty($pageAtSpotId)) {
+            else if ($existing === null && !empty($pageAtSpotId)) {
+                //print_r("Insert");
                 $wpdb->query($wpdb->prepare(
                     'INSERT INTO ' . $wpdb->prefix . self::$TBL_NAME .
                     ' (page_id, spot, post_id) VALUES (%d, %s, %d)'
@@ -174,6 +235,8 @@ class PageSpot_Admin extends PageSpot
                 ));
             }
         }
+        
+        //exit;
     }
     
     /**
@@ -214,5 +277,103 @@ class PageSpot_Admin extends PageSpot
         }
         
         return array_merge($pages, $privatePages);
+    }
+    
+    public static function isPostTemplatingEnabled() {
+        return get_option('pagespot_post_templating', 1);
+    }
+    
+    public static function setPostTemplatingEnabled($option) {
+        $option = ($option ? 1 : 0);
+        update_option('pagespot_post_templating', $option);   
+    }
+    
+    /**
+     * Called from hook to add an admin page for PageSpot
+     *
+     */
+    public static function admin_menu() {
+        global $wpdb;
+        
+        
+        ?>
+        <div class="wrap">
+            <div id='icon-options-general' class='icon32'>
+                <br/>
+            </div>
+            <h2>PageSpot Options</h2>
+            <form id="pagespot_admin_form" action="<?php bloginfo('wpurl') ?>/wp-admin/admin-ajax.php" 
+             method="get" onsubmit="return pagespot_admin_submit(this)">
+                <?php wp_nonce_field('update-options') ?>
+                <table id="pagespot_admin_tbl" class="form-table">
+                <tr valign="top">
+                    <th scope="row"><h3>PageSpot Post Templating:</h3></th>
+                    <td>
+                        <input type="radio" name="ps_post_templating" value="1" <?php 
+                            if (self::isPostTemplatingEnabled()) print "checked"; 
+                            ?>/>&nbsp;Enabled
+                        
+                        &nbsp;&nbsp;&nbsp;
+                        
+                        <input type="radio" name="ps_post_templating" value="0" <?php 
+                            if (!self::isPostTemplatingEnabled()) print "checked"; 
+                            ?>/>&nbsp;Disabled
+                    
+                        <p>
+                            When enabled, PageSpot will add a control to your 
+                            Posts to select a template from your theme, so you 
+                            can add PageSpot to your Posts!
+                        </p>
+                        <p>
+                            To do this, PageSpot adds metadata to your Posts in 
+                            the same way that Wordpress does it for Pages.  Disable 
+                            this if you're using another plugin that provides Post 
+                            templating by the same method.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>
+                        <input type="submit" class="button-primary" value="<?php _e('Update') ?>" />
+                        <img id="pagespot_wait" src="<?php bloginfo('wpurl') ?>/wp-admin/images/wpspin_dark.gif" style="display:none;" title="" alt="" />
+                    </td>
+                </tr>
+                </table>
+                
+            </form>
+        </div>
+        <?php
+    }
+    
+    public static function admin_scripts() {
+        wp_enqueue_script('pagespot-admin', 
+            path_join(WP_PLUGIN_URL, basename(dirname(__FILE__)).'/pagespot-admin.js'));
+    }
+    
+    public static function save_options() {
+        global $wpdb;
+        $errors = array();
+        
+        if (isset($_POST['action']) && $_POST['action'] == 'pagespot_save_options') {
+            $templating = filter_input(INPUT_POST, 'ps_post_templating', FILTER_VALIDATE_INT);
+            //var_dump($templating); exit;
+            if (null !== $templating) {
+                self::setPostTemplatingEnabled($templating);
+            }
+            else {
+                $errors[] = 'No options available to save';
+            }
+        }
+        else {
+           $errors[] = 'Bad request';
+        }
+        
+        $out = array(
+            'errors' => implode("\n", $errors)
+        );
+        
+        print json_encode($out);
+        exit;
     }
 }

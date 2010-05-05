@@ -19,7 +19,7 @@
 
 class PageSpot
 {
-    public static $VERSION = '2009-03';
+    public static $VERSION = '2010-04';
     public static $DB_VERSION = '2009-03';
     
     public static $TBL_NAME = 'pagespot';
@@ -106,7 +106,7 @@ class PageSpot
             return;
         the_post();
         
-        if (!is_page()) {
+        if (!is_page() && !is_single()) {
             rewind_posts();
             return;
         }
@@ -120,6 +120,7 @@ class PageSpot
             return;
         }
         
+        /*****
         $content = self::do_replace($template_file);
         $tfn = tempnam(sys_get_temp_dir(), 'pagespot_'.get_the_ID().'_');
         file_put_contents($tfn, $content);
@@ -127,6 +128,16 @@ class PageSpot
         rewind_posts();
         include $tfn;
         unlink($tfn);
+        ******/
+        
+        rewind_posts();
+        ob_start();
+        include $template_file;
+        $out = ob_get_clean();
+        
+        $out = self::do_replace_str($out);
+        print $out;
+        
         exit;
     }
     
@@ -161,6 +172,11 @@ class PageSpot
      */
     protected static function do_replace($from_filename) {
         $content = file_get_contents($from_filename);
+        return self::do_replace_str($content);
+        
+    }
+    
+    protected static function do_replace_str($content) {
         $tags = self::parse_tags($content);
         
         foreach ($tags as $tag) {
@@ -200,11 +216,11 @@ class PageSpot
         
         $inject_post_id = self::get_post_for_page_spot($page_id, $tag_name);
         if (empty($inject_post_id)) {
-            $injectContent = 
-            '<?php 
+            $injectContent = '';
+            /*'<?php 
             print "No post assigned to " . ucFirst("'.$tag_name.'") . "!";
             ?>
-            ';
+            ';*/
         }
         else {
             $injectContent = $wpdb->get_var($wpdb->prepare(
@@ -213,6 +229,12 @@ class PageSpot
                 , $inject_post_id
             ));
             $injectContent = apply_filters('the_content', $injectContent);
+            
+            $url = get_edit_post_link($inject_post_id);
+            if ($url) {
+                $link = '<a class="post-edit-link" href="' . $url . '" title="' . esc_attr( __( 'Edit Spot' ) ) . '">Edit this Spot</a>';
+                $injectContent .= '<p>' . apply_filters( 'edit_post_link', $link, $post->ID ) . '</p>';
+            }
         }
         
         return str_replace($tag, $injectContent, $content);
@@ -257,17 +279,18 @@ class PageSpot
     public static function print_sidebar($wrapperClass="sidebarmodule") {
         global $wpdb;
         
+        $sidebarCtr = self::get_post_for_page_spot(get_the_ID(), PageSpot::$SIDEBAR_SPOT);
+        if (empty($sidebarCtr)) {
+            //$sidebarCtr = get_option('pagespot_sidebar_container_id');
+            return;
+        }
+        
         // Plugin "events-manager" has this stupid hook that's interfering 
         // with the_content.  Remove it and re-add it when we're done with these posts.
         $_my_dbem_workaround = false;
         if (has_filter('the_content', 'dbem_filter_events_page')) {
             remove_filter('the_content', 'dbem_filter_events_page');
             $_my_dbem_workaround = true;
-        }
-        
-        $sidebarCtr = self::get_post_for_page_spot(get_the_ID(), PageSpot::$SIDEBAR_SPOT);
-        if (empty($sidebarCtr)) {
-            $sidebarCtr = get_option('pagespot_sidebar_container_id');
         }
         
         $rs = $wpdb->get_results(

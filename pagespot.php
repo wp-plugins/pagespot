@@ -36,10 +36,19 @@ register_activation_hook(__FILE__, array('PageSpot', 'install'));
 add_action('edit_page_form', create_function('',
     "add_meta_box('pagespotdiv', 'PageSpot', array('PageSpot_Admin', 'page_edit_form'), 'page');"
 ));
+add_action('edit_form_advanced', create_function('',
+    "add_meta_box('pagespotdiv', 'PageSpot', array('PageSpot_Admin', 'page_edit_form'), 'post');"
+));
 
 add_action('submitpage_box', create_function('', 
     "add_meta_box('pagespotdiv', 'Sidebar', array('PageSpot_Admin', 'page_edit_sidebar_form'), 'page', 'side');"
 ));
+
+if (PageSpot_Admin::isPostTemplatingEnabled()) {
+    add_action('submitpost_box', create_function('', 
+        "add_meta_box('pagespotdiv', 'PageSpot', array('PageSpot_Admin', 'post_edit_sidebar_form'), 'post', 'side');"
+    ));
+}
 
 function _pagespot_admin_head() {
     global $post;
@@ -134,3 +143,21 @@ add_filter('favorite_actions', '_pagespot_favorite_actions_filter');
 
 // Munge content for pages
 add_action('template_redirect', array('PageSpot', 'template_redirect_action'));
+
+// Adding an admin page under Themes
+function _pagespot_admin_menu() {
+    // Add the menu link to our admin page
+    /*$page = add_submenu_page('themes.php', 
+        'PageSpot', 
+        'PageSpot', 
+        9,
+        __FILE__,
+        array('PageSpot_Admin', 'admin_menu'));*/
+    $page = add_options_page('PageSpot', 'PageSpot', 9, __FILE__, array('PageSpot_Admin', 'admin_menu'));
+    // Add our javascript file to the admin scripts for the page we just created
+    add_action('admin_print_scripts-'.$page, array('PageSpot_Admin', 'admin_scripts'));
+}
+add_action('admin_menu', '_pagespot_admin_menu');
+
+// Add response hooks to ajax actions taken from our admin page/javascript
+add_action('wp_ajax_pagespot_save_options', array('PageSpot_Admin', 'save_options'));
