@@ -164,8 +164,9 @@ add_action('wp_ajax_pagespot_save_options', array('PageSpot_Admin', 'save_option
 
 if (!function_exists('esc_attr')) {
     function esc_attr( $text ) {
+        $safe_text = $text;
         //$safe_text = wp_check_invalid_utf8( $text );
-        $safe_text = _wp_specialchars( $safe_text, ENT_QUOTES );
+        //$safe_text = _wp_specialchars( $safe_text, ENT_QUOTES );
         //return apply_filters( 'attribute_escape', $safe_text, $text );
         return $safe_text;
     }
