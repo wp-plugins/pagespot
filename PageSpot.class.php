@@ -110,12 +110,14 @@ class PageSpot
             rewind_posts();
             return;
         }
-        if (!get_the_ID()) {
+
+        $id = get_the_ID();
+        if (!$id) {
             die('No ID in context!');
         }
 
         // Grab template for this page.
-        if (!$template_file = self::get_pagespot_template_name()) {
+        if (!$template_file = self::get_pagespot_template_name($id)) {
             rewind_posts();
             return;
         }
@@ -135,7 +137,7 @@ class PageSpot
         include $template_file;
         $out = ob_get_clean();
 
-        $out = self::do_replace_str($out);
+        $out = self::do_replace_str($out, $id);
         print $out;
 
         exit;
@@ -176,11 +178,11 @@ class PageSpot
 
     }
 
-    protected static function do_replace_str($content) {
+    protected static function do_replace_str($content, $id=null) {
         $tags = self::parse_tags($content);
 
         foreach ($tags as $tag) {
-            $content = self::do_tag_replace($content, $tag);
+            $content = self::do_tag_replace($content, $tag, $id);
         }
         return $content;
     }
@@ -204,9 +206,11 @@ class PageSpot
      * @param string $tag
      * @return string
      */
-    protected static function do_tag_replace($content, $tag) {
+    protected static function do_tag_replace($content, $tag, $page_id) {
         global $wpdb;
-        $page_id = get_the_ID();
+        if (empty($page_id))
+            $page_id = get_the_ID();
+
         if (empty($page_id)) {
             trigger_error('No page ID in context', E_USER_WARNING);
             return $content;
